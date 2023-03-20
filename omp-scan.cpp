@@ -16,23 +16,10 @@ void scan_seq(long* prefix_sum, const long* A, long n) {
 void scan_omp(long* prefix_sum, const long* A, long n) {
   int p = omp_get_num_threads();
   int t = omp_get_thread_num();
-  long size = n/p + 1;
-  long offset[p];
-  offset[0] = 0;
-#pragma parallel omp
-#pragma omp for schedule(static, size)
-  for (long i = 1; i < n; i++) {
-    prefix_sum[i] = prefix_sum[i-1] + A[i-1];
-  }
-  if (t == 0) {
-    for (j = 1; j < p; j++) {
-      offset[i] = offset[i-1] + A[i*size-1];
-    }
-  }
-#pragma omp for schedule(static, size)
-  for (long i = 1; i < n; i++) {
-    prefix_sum[i] = offset[t];
-  }
+  // Fill out parallel scan: One way to do this is array into p chunks
+  // Do a scan in parallel on each chunk, then share/compute the offset
+  // through a shared vector and update each chunk by adding the offset
+  // in parallel
 }
 
 int main() {
