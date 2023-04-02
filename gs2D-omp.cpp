@@ -1,0 +1,1 @@
+// Compile: g++ -fopenmp -O3 -g -o gs2D-omp gs2D-omp.cpp

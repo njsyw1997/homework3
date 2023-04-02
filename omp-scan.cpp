@@ -1,3 +1,4 @@
+// Compile: g++ -fopenmp -O3 -g -o omp-scan omp-scan.cpp
 #include <algorithm>
 #include <stdio.h>
 #include <math.h>
@@ -14,13 +15,40 @@ void scan_seq(long* prefix_sum, const long* A, long n) {
 }
 
 void scan_omp(long* prefix_sum, const long* A, long n) {
-  int p = omp_get_num_threads();
-  int t = omp_get_thread_num();
-  // Fill out parallel scan: One way to do this is array into p chunks
-  // Do a scan in parallel on each chunk, then share/compute the offset
-  // through a shared vector and update each chunk by adding the offset
-  // in parallel
+  // Suppose n is bigger than the number of threads
+  if (n == 0) return;
+  long* r;
+  #pragma omp parallel shared(r)
+  { 
+    int p = omp_get_num_threads();
+    int t = omp_get_thread_num();
+    # pragma omp single
+    {
+      r= (long*) malloc(p * sizeof(long));
+      // printf("Number of threads = %d\n",p);
+    }
+    // Fill out parallel scan: One way to do this is array into p chunks
+    // Do a scan in parallel on each chunk, then share/compute the offset
+    // through a shared vector and update each chunk by adding the offset
+    // in parallel
+    long start_index = t * (n-1) / p +1;
+    long end_index = (t + 1) * (n-1) / p+1;
+    prefix_sum[start_index] = A[start_index-1];
+    for (long i = start_index+1; i < end_index; i++) {      
+      prefix_sum[i] = prefix_sum[i-1] + A[i-1];
+    }    
+    r[t]=prefix_sum[end_index-1];
+    #pragma omp barrier
+    for (size_t i = 0; i < t; i++)
+    {
+      for (long j = start_index; j < end_index; j++)
+      {
+        prefix_sum[j] += r[i];
+      }
+    }  
+  }
 }
+
 
 int main() {
   long N = 100000000;

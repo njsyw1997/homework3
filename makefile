@@ -1,4 +1,4 @@
-CXX = g++-12
+CXX = g++-11
 CXXFLAGS = -std=c++11 -O3 -march=native -fopenmp
 
 TARGETS = $(basename $(wildcard *.cpp))
