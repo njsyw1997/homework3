@@ -1,4 +1,5 @@
 // Compile: g++ -fopenmp -O3 -g -o omp-scan omp-scan.cpp
+// Execute: ./omp-scan
 #include <algorithm>
 #include <stdio.h>
 #include <math.h>
@@ -39,14 +40,17 @@ void scan_omp(long* prefix_sum, const long* A, long n) {
     }    
     r[t]=prefix_sum[end_index-1];
     #pragma omp barrier
+    long r_sum=0;
     for (size_t i = 0; i < t; i++)
     {
-      for (long j = start_index; j < end_index; j++)
-      {
-        prefix_sum[j] += r[i];
-      }
-    }  
+      r_sum += r[i];
+    }
+    for (long j = start_index; j < end_index; j++)
+    {
+      prefix_sum[j] += r_sum;
+    } 
   }
+  free(r);
 }
 
 
@@ -62,14 +66,17 @@ int main() {
   scan_seq(B0, A, N);
   printf("sequential-scan = %fs\n", omp_get_wtime() - tt);
 
-  tt = omp_get_wtime();
-  scan_omp(B1, A, N);
-  printf("parallel-scan   = %fs\n", omp_get_wtime() - tt);
 
-  long err = 0;
-  for (long i = 0; i < N; i++) err = std::max(err, std::abs(B0[i] - B1[i]));
-  printf("error = %ld\n", err);
-
+  for (size_t threads = 1; threads <= 64; threads=threads*2)
+  {
+    omp_set_num_threads(threads);
+    tt = omp_get_wtime();
+    scan_omp(B1, A, N);
+    printf("parallel-scan with %d threads   = %fs",threads, omp_get_wtime() - tt);
+    long err = 0;
+    for (long i = 0; i < N; i++) err = std::max(err, std::abs(B0[i] - B1[i]));
+    printf("  error = %ld\n", err);
+  } 
   free(A);
   free(B0);
   free(B1);
