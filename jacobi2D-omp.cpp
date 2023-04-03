@@ -1,5 +1,5 @@
 // Compile: g++ -fopenmp -O3 -g -o jacobi2D-omp jacobi2D-omp.cpp
-// ./jacobi2D-omp -n <N> -p <Thread_num>
+// ./jacobi2D-omp
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
@@ -7,6 +7,8 @@
 #include "utils.h"
 #include <vector>
 #include <cmath>
+#include <iomanip> 
+#include <algorithm>
 using namespace std;
 
 double get_value(int N, const vector<double> &x, long i, long j)
@@ -73,7 +75,7 @@ vector<double> seq_jacobi(long N,  int max_iter, double conv, int &iter, double 
         {
             for (long j = 0; j < N; j++)
             {
-                double lb,lu,rb,ru=0; 
+                double lb,lu,rb,ru=0;
                 long index=i*N+j;
                 lb=get_value(N,prev_x,i-1,j-1);
                 lu=get_value(N,prev_x,i-1,j+1);
@@ -87,7 +89,7 @@ vector<double> seq_jacobi(long N,  int max_iter, double conv, int &iter, double 
         {
            cout<<"iter "<<iter_<<" Res="<<res<<endl;   
         }   
-        prev_x=x;    
+        swap(x,prev_x);    
     }
     iter=iter_;
     residual_norm=res;
@@ -149,7 +151,7 @@ vector<double> omp_jacobi(long N,  int max_iter, double conv, int &iter, double 
         {
            cout<<"iter "<<iter_<<" Res="<<res<<endl;   
         }   
-        prev_x=x;    
+        swap(x,prev_x);   
     }
     iter=iter_;
     residual_norm=res;
@@ -158,29 +160,71 @@ vector<double> omp_jacobi(long N,  int max_iter, double conv, int &iter, double 
 #endif
 
 int main (int argc, char** argv){
-    long n = read_option<long>("-n", argc, argv);
-    int p = read_option<long>("-p", argc, argv);
+    vector<long> ns={100,200,300,400,500,1000,2000};
+    vector<int> ps={1,2,3,4,8,16,32};
+    vector<double> omp_result;
+    vector<double> seq_result;
     int seq_iter=0;
     int omp_iter=0;
     double seq_res=0;
     double omp_res=0;
 
-    #if defined(_OPENMP)
-    double t=omp_get_wtime();
-    vector<double> x1=seq_jacobi(n,1000,1e-6,seq_iter,seq_res);
-    cout<<"Seq iter="<<seq_iter<<" Res="<<seq_res<<" Running time is "<<omp_get_wtime() - t<<endl;
+    for (long n:ns)
+    {
+        double seq_time=0;
+    #if defined(_OPENMP) 
+        double t=omp_get_wtime();
+        vector<double> x1=seq_jacobi(n,1000,1e-6,seq_iter,seq_res);
+        seq_time=omp_get_wtime() - t;
+        cout<<"N="<<n<<" Seq iter="<<seq_iter<<" Res="<<seq_res<<" Running time is "<<seq_time<<endl;
     #else
-    Timer t;
-    t.tic();
-    vector<double> x1=seq_jacobi(n,1000,1e-6,seq_iter,seq_res);
-    cout<<"Seq iter="<<seq_iter<<" Res="<<seq_res<<" Running time is "<<t.toc()<<endl;
+        Timer t;
+        t.tic();
+        vector<double> x1=seq_jacobi(n,1000,1e-6,seq_iter,seq_res);
+        seq_time=t.toc();
+        cout<<"N="<<n<<" Seq iter="<<seq_iter<<" Res="<<seq_res<<" Running time is "<<seq_time<<endl;
     #endif
+        seq_result.push_back(seq_time);
+    }
+   
 
     #if defined(_OPENMP)
-    omp_set_num_threads(p);
-    double tt=omp_get_wtime();
-    vector<double> x2=omp_jacobi(n,1000,1e-6,omp_iter,omp_res);    
-    cout<<"OMP iter="<<omp_iter<<" Res="<<omp_res<<" Running time is "<<omp_get_wtime() - tt<<endl;
+    for (int p:ps)
+        for (long n:ns)
+        
+    {
+        omp_set_num_threads(p);
+        double tt=omp_get_wtime();        
+        vector<double> x2=omp_jacobi(n,1000,1e-6,omp_iter,omp_res);  
+        double omp_time=omp_get_wtime() - tt;    
+        cout<<"N="<<n<<" Thread="<<p<<" OMP iter="<<omp_iter<<" Res="<<omp_res<<" Running time is "<<omp_time<<endl;
+        omp_result.push_back(omp_time);        
+    }
+
+    cout<<setw(10)<<"N";
+    for (long n:ns)
+    {
+        cout<<setw(10)<<n;
+    }
+    cout<<endl;
+    cout<<setw(10)<<"Seq";
+
+    for (double i : seq_result)
+    {
+        cout<<setw(10)<<i;
+    }
+    cout<<endl;
+    int tmp_index=0;
+    for (int p:ps)
+    { 
+        cout<<setw(10)<<p;
+        for(long n:ns)
+        {
+            cout<<setw(10)<<omp_result[tmp_index];
+            tmp_index++;
+        }
+        cout<<endl;
+    }    
     #endif
-    return 0;
+    return 0;   
 }
