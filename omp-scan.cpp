@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <omp.h>
+#include "utils.h"
 
 // Scan A array and write result into prefix_sum array;
 // use long data type to avoid overflow
@@ -15,6 +16,7 @@ void scan_seq(long* prefix_sum, const long* A, long n) {
   }
 }
 
+#if defined(_OPENMP)
 void scan_omp(long* prefix_sum, const long* A, long n) {
   // Suppose n is bigger than the number of threads
   if (n == 0) return;
@@ -52,6 +54,7 @@ void scan_omp(long* prefix_sum, const long* A, long n) {
   }
   free(r);
 }
+#endif
 
 
 int main() {
@@ -61,12 +64,20 @@ int main() {
   long* B1 = (long*) malloc(N * sizeof(long));
   for (long i = 0; i < N; i++) A[i] = rand();
   for (long i = 0; i < N; i++) B1[i] = 0;
-  
+
+#if defined(_OPENMP)
   double tt = omp_get_wtime();
   scan_seq(B0, A, N);
   printf("sequential-scan = %fs\n", omp_get_wtime() - tt);
+#else
+  Timer t;
+  t.tic();
+  scan_seq(B0, A, N);
+  printf("sequential-scan = %fs\n", t.toc());
+#endif
 
 
+#if defined(_OPENMP)
   for (size_t threads = 1; threads <= 64; threads=threads*2)
   {
     omp_set_num_threads(threads);
@@ -77,6 +88,7 @@ int main() {
     for (long i = 0; i < N; i++) err = std::max(err, std::abs(B0[i] - B1[i]));
     printf("  error = %ld\n", err);
   } 
+#endif
   free(A);
   free(B0);
   free(B1);
